@@ -5,6 +5,9 @@
  * Copyright 2006, 2015 Klaus Hartl & Fagner Brack
  * Released under the MIT license
  */
+
+
+ // cookie "key=name; expires=Thu, 25 Feb 2016 04:18:00 GMT; domain=ppsc.sankuai.com; path=/; secure; HttpOnly"
 ;(function (factory) {
 	var registeredInModuleLoader;
 	if (typeof define === 'function' && define.amd) {
@@ -18,12 +21,19 @@
 	if (!registeredInModuleLoader) {
 		var OldCookies = window.Cookies;
 		var api = window.Cookies = factory();
+		// 都学会了?
 		api.noConflict = function () {
 			window.Cookies = OldCookies;
 			return api;
 		};
 	}
 }(function () {
+	/**
+	 * 将参数对象的k-v合到一起
+	 * @param {...Object} rest参数	
+	 * @returns {Object} 合并后的对象
+	 * @example extend({a:1},{b:2}) = {a:1,b:2}
+	 */
 	function extend () {
 		var i = 0;
 		var result = {};
@@ -36,13 +46,33 @@
 		return result;
 	}
 
+	/**
+	 * 解码字符串	
+	 * @param {String} s 待解码的字符串
+	 * @returns {String} s 解码后的字符串
+	 */
 	function decode (s) {
 		return s.replace(/(%[0-9A-Z]{2})+/g, decodeURIComponent);
 	}
 
+	/**
+	 * @todo
+	 * @param {Object} converter 
+	 */
 	function init (converter) {
 		function api() {}
 
+		/**
+		 * 写cookie
+		 * @param {String} key cookie key
+		 * @param {String} value cookie value 可以合法的json对象
+		 * @param {Oject} attributes cookie参数
+		 * - attributes.expires {String|number} cookie 过期时间
+		 * - attributes.domain {String} 域名
+		 * - attributes.path {String} 路径
+		 * - attributes.secure {boolean} 是否必须走https
+		 * - attributes.HttpOnly {boolean} 加这个js不可访问
+		 */
 		function set (key, value, attributes) {
 			if (typeof document === 'undefined') {
 				return;
@@ -66,6 +96,7 @@
 				}
 			} catch (e) {}
 
+			// @todo, 这个convert.write是来编码的?
 			value = converter.write ?
 				converter.write(value, key) :
 				encodeURIComponent(String(value))
@@ -95,9 +126,15 @@
 				stringifiedAttributes += '=' + attributes[attributeName].split(';')[0];
 			}
 
+			// @todo ??
 			return (document.cookie = key + '=' + value + stringifiedAttributes);
 		}
 
+		/**
+		 * 取cookie
+		 * @param {String} key 要获取的cookie的key 
+		 * @param {boolean} json 是不是要将cookie格式化为json对象形式
+		 */
 		function get (key, json) {
 			if (typeof document === 'undefined') {
 				return;
@@ -108,10 +145,11 @@
 			// in case there are no cookies at all.
 			var cookies = document.cookie ? document.cookie.split('; ') : [];
 			var i = 0;
-
+			// "key=name; expires=Thu, 25 Feb 2016 04:18:00 GMT; domain=ppsc.sankuai.com; path=/; secure; HttpOnly"
+			
 			for (; i < cookies.length; i++) {
-				var parts = cookies[i].split('=');
-				var cookie = parts.slice(1).join('=');
+				var parts = cookies[i].split('='); // [k,v]
+				var cookie = parts.slice(1).join('='); // k=v
 
 				if (!json && cookie.charAt(0) === '"') {
 					cookie = cookie.slice(1, -1);
@@ -139,21 +177,32 @@
 			return key ? jar[key] : jar;
 		}
 
+		// 暴露一些方法
 		api.set = set;
+		// 字符串
 		api.get = function (key) {
 			return get(key, false /* read as raw */);
 		};
+		// json对象, 失败还是原始值
 		api.getJSON = function (key) {
 			return get(key, true /* read as json */);
 		};
+		/**
+		 * 移除cookie
+		 * @param key {String} 要移除的cookie的key
+		 */
 		api.remove = function (key, attributes) {
 			set(key, '', extend(attributes, {
 				expires: -1
 			}));
 		};
 
+		// @todo 这个是干啥的, 想给默认值确没法配置
 		api.defaults = {};
 
+		api.setDefault = function (attributes) {
+			api.defaults = attributes;
+		}
 		api.withConverter = init;
 
 		return api;
